@@ -84,7 +84,12 @@ textarea, input { font-family: var(--font-mono); }
 }
 .prose-rich pre code { background: transparent; padding: 0; }
 .prose-rich ul, .prose-rich ol { margin: 0.6em 0; padding-left: 1.5em; }
+.prose-rich ul { list-style: disc; }
+.prose-rich ol { list-style: decimal; }
+.prose-rich ul ul { list-style: circle; }
+.prose-rich ul ul ul { list-style: square; }
 .prose-rich li { margin: 0.2em 0; }
+.prose-rich li::marker { color: var(--accent-strong); }
 .prose-rich blockquote {
   border-left: 3px solid var(--accent);
   background: hsl(41, 75%, 96%);
