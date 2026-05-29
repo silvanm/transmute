@@ -23,10 +23,18 @@ function sanitize(html: string): string {
   return DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
 }
 
+// Normalize ANSI: re-add missing ESC bytes (some clipboards strip them) and
+// convert T.416 colon-delimited SGR params to the ansi_up–friendly semicolon form.
+function normalizeAnsi(input: string): string {
+  return input.replace(/\x1b?\[([\d;:]+)m/g, (_m, params: string) => {
+    return `\x1b[${params.replace(/:/g, ";")}m`;
+  });
+}
+
 function ansiToHtml(input: string): string {
   const a = new AnsiUp();
   a.use_classes = false;
-  return `<pre style="font-family:ui-monospace,Menlo,monospace;white-space:pre-wrap;margin:0">${a.ansi_to_html(input)}</pre>`;
+  return `<pre style="font-family:ui-monospace,Menlo,monospace;white-space:pre-wrap;margin:0">${a.ansi_to_html(normalizeAnsi(input))}</pre>`;
 }
 
 function markdownToHtml(input: string): string {
@@ -38,7 +46,7 @@ function htmlToMarkdown(input: string): string {
 }
 
 function stripAnsi(input: string): string {
-  return input.replace(/\x1b\[[0-9;]*m/g, "");
+  return input.replace(/\x1b?\[[0-9;:]*m/g, "");
 }
 
 // Convert any input format into normalized HTML (used as intermediate).
@@ -111,7 +119,9 @@ export async function pasteSmart(): Promise<{ text: string; html: string | null 
 
 export function detectFormat(text: string, html: string | null): Format {
   if (html && /<[a-z][\s\S]*>/i.test(html)) return "rich";
-  if (/\x1b\[[0-9;]*m/.test(text)) return "ansi";
+  // Match real ESC-prefixed CSIs, or bare SGR-looking sequences when clipboards strip ESC.
+  if (/\x1b\[[\d;:]*m/.test(text) || /(?:^|[\s\n])\[[\d;:]+m/.test(text))
+    return "ansi";
   if (/^\s*<[a-z!][\s\S]*>/i.test(text)) return "html";
   if (/^#{1,6}\s|^[-*]\s|```|\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\)/m.test(text))
     return "markdown";
