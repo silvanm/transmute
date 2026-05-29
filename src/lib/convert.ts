@@ -25,9 +25,21 @@ function sanitize(html: string): string {
 
 // Normalize ANSI: re-add missing ESC bytes (some clipboards strip them) and
 // convert T.416 colon-delimited SGR params to the ansi_up–friendly semicolon form.
+// The T.416 truecolor sub-sequence `38:2:<cs>:R:G:B` carries an extra colorspace
+// id that ECMA-48's `38;2;R;G;B` doesn't — drop it so R/G/B land in the right slots.
 function normalizeAnsi(input: string): string {
   return input.replace(/\x1b?\[([\d;:]+)m/g, (_m, params: string) => {
-    return `\x1b[${params.replace(/:/g, ";")}m`;
+    const groups = params.split(";").map((group) => {
+      if (!group.includes(":")) return group;
+      const parts = group.split(":");
+      // 38:2:cs:R:G:B  or  48:2:cs:R:G:B  → drop colorspace at index 2
+      if ((parts[0] === "38" || parts[0] === "48") && parts[1] === "2" && parts.length === 6) {
+        parts.splice(2, 1);
+      }
+      // 38:5:N  or  48:5:N  → already aligned with semicolon form
+      return parts.join(";");
+    });
+    return `\x1b[${groups.join(";")}m`;
   });
 }
 
